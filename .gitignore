@@ -1,0 +1,6 @@
+*.rkt~
+*.out
+*.o
+*.s
+tmp*
+build.sh
