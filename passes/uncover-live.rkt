@@ -1,6 +1,5 @@
 #lang racket
 
-(require "../utilities.rkt")
 (require "./utils.rkt")
 (require graph)
 

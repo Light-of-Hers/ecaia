@@ -1,7 +1,7 @@
 #lang racket
 
-(require "../utilities.rkt")
 (require "./utils.rkt")
+
 (provide remove-complex)
 
 (define (rc-arg e [t '()])
@@ -16,7 +16,7 @@
      (let ([tmp (gen-sym "tmp")])
        (values (lift tmp) `((,tmp . (has-type (if ,(rc-exp cnd) ,(rc-exp thn) ,(rc-exp els)) ,t)))))]
     [`(,op ,es ...)
-     (let-values ([(ress bindss) (map2 rc-arg es)])
+     (let-values ([(ress bindss) (for/lists (_1 _2) ([e es]) (rc-arg e))])
        (let ([tmp (gen-sym "tmp")])
          (values (lift tmp) `(,@(apply append bindss) (,tmp . (has-type (,op ,@ress) ,t))))))]
     ))
@@ -34,11 +34,12 @@
      `(let ([,x ,(rc-exp e)]) ,(rc-exp body))]
     [`(if ,cnd ,thn ,els)
      `(if ,(rc-exp cnd) ,(rc-exp thn) ,(rc-exp els))]
-    [`(,op ,es ...) #:when (builtin-op? op)
-     (let-values ([(ress bindss) (map2 rc-arg es)])
+    [`(,op ,es ...)
+     #:when (builtin-op? op)
+     (let-values ([(ress bindss) (for/lists (_1 _2) ([e es]) (rc-arg e))])
        (serialize-bindings (apply append bindss) `(,op ,@ress) t))]
     [`(,_ ,_ ...)
-     (let-values ([(ress bindss) (map2 rc-arg e)])
+     (let-values ([(ress bindss) (for/lists (_1 _2) ([e e]) (rc-arg e))])
        (serialize-bindings (apply append bindss) ress t))]
     ))
 

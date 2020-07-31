@@ -1,6 +1,5 @@
 #lang racket
 
-(require "../utilities.rkt")
 (require "./utils.rkt")
 
 (provide print-x86)
@@ -24,7 +23,7 @@
     [`(,opt ,oprs ...) (format "\t~a ~a" opt (string-join (map px-opr oprs) ", "))]
     ))
 
-(define (px-blk l insts [epi '()])
+(define (px-blk l insts epi)
   (string-join `(,(format "~a:" l) ,@(map ((curry px-inst) epi) insts)) "\n"))
 
 (define (px-def def)
@@ -42,6 +41,7 @@
             [prologue `(
                         ,@(for/list ([r sainted]) (format "\tpushq %~a" r))
                         "\tpushq %rbp"
+                        "\tmovq %rsp, %rbp"
                         ,(format "\tsubq $~a, %rsp" space)
                         ,@(for/list ([off (range 0 root-space 8)]) (format "\tmovq $0, ~a(%r15)" off))
                         ,(format "\taddq $~a, %r15" root-space)

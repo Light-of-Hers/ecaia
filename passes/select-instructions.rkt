@@ -1,6 +1,5 @@
 #lang racket
 
-(require "../utilities.rkt")
 (require "./utils.rkt")
 (require graph)
 
@@ -91,6 +90,7 @@
   (define cfg (unweighted-graph/directed '()))
   (define start '())
   (define conclusion '())
+  (define main? #f)
   (define (sel-tail l t)
     (add-vertex! cfg l)
     (match t
@@ -102,7 +102,10 @@
       [`(tailcall ,f ,args ...)
        `(,@(for/list ([a args] [r arg-regs])
              `(movq ,(arg->opr a) (reg ,r)))
-         (tail-jmp ,(arg->opr f)))]
+         ,@(if main?
+               `((indirect-callq ,(arg->opr f))
+                 (jmp ,conclusion))
+               `((tail-jmp ,(arg->opr f)))))]
       [`(if ,cmp (goto ,l1) (goto ,l2))
        (add-directed-edge! cfg l l1) (add-directed-edge! cfg l l2)
        (match cmp
@@ -113,7 +116,8 @@
          )]
       ))
   (match def
-    [`(define ,(app pbind sig `(,_ [,args : ,_] ...)) : ,rt ,infos ((,ls . ,ts) ...))
+    [`(define ,(app pbind sig `(,f [,args : ,_] ...)) : ,rt ,infos ((,ls . ,ts) ...))
+     (set! main? (eq? f 'main))
      (set! start (dict-ref infos 'start))
      (set! conclusion (dict-ref infos 'conclusion))
      (define prelude (for/list ([r arg-regs] [a args]) `(movq (reg ,r) ,(arg->opr a))))

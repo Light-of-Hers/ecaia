@@ -1,9 +1,8 @@
 #lang racket
 
 (require "utils.rkt")
-(require "../utilities.rkt")
 
-(provide type-check type-check-exp)
+(provide type-check type-tag)
 
 (define arity-table (make-hash))
 (for ([op '(+ -)]) (hash-set! arity-table op `((Integer Integer) Integer)))
@@ -14,7 +13,7 @@
 (define (type-check-exp env e)
   (define recur ((curry type-check-exp) env))    
   (match e
-    [`(has-type ,_ ,t) (tce e t)]
+    [`(has-type ,_ ,t) (values e t)]
     [(? fixnum?) (tce e `Integer)]
     [(? boolean?) (tce e `Boolean)]
     [(? symbol?) (tce e (dict-ref env e))]
@@ -39,7 +38,7 @@
        (error `type-check-exp "two branches must have same type ~a : ~a" tt et))
      (tce `(if ,cn ,th, el) tt)]
     [`(vector ,es ...)
-     (define-values (e* t*) (for/lists (e* t*) ([e es]) (recur e)))
+     (define-values (e* t*) (for/lists (_e* _t*) ([e es]) (recur e)))
      (let ([t `(Vector ,@t*)])
        (tce `(vector ,@e*) t))]
     [`(vector-ref ,e ,i)
@@ -65,6 +64,16 @@
           (tce `(vector-set! ,e^ ,i ,e1^) `Void))]
        [else (error `type-check-exp "expected a vector in vector-set!, not ~a" t)]
        )]
+    [`(lambda: ,(app pbind sig `([,xs : ,ts] ...)) : ,rt ,body)
+     (when (< (set-count (apply set xs)) (length xs))
+       (error 'type-check-exp "re-define arguments" xs))
+     (define ext-env (for/fold ([env env])
+                               ([x xs] [t ts])
+                       (cons `(,x . ,t) env)))
+     (define-values (b bt) (type-check-exp ext-env body))
+     (unless (equal? bt rt)
+       (error 'type-check-exp "expect return type" rt))
+     (tce `(lambda: ,sig : ,rt ,b) `(,@ts -> ,rt))]
     [`(,op ,es ...)
      (define-values (op^ arity) (cond
                                   [(and (eq? op '-) (= (length es) 1)) (values op `((Integer) Integer))]
@@ -75,13 +84,17 @@
                                             [`(,ats ... -> ,rt) (values op `(,ats ,rt))]
                                             ))]
                                   ))
-     (define-values (e* t*) (for/lists (e* t*) ([e es]) (recur e)))
+     (define-values (e* t*) (for/lists (_0 _1) ([e es]) (recur e)))
      (define (check arg-types ret-type)
        (unless (equal? t* arg-types)
          (error `type-check-exp "fuck your mother" t*))
        (tce `(,op^ ,@e*) ret-type))
      (apply check arity)]
     ))
+
+(define (type-tag e)
+  (define-values (e^ _) (type-check-exp '() e))
+  e^)
 
 (define (collect-def-types defs)
   (foldr (lambda (def env)
@@ -98,12 +111,12 @@
 (define (type-check-def env def)
   (match def
     [`(define ,(app pbind sig `(,_ [,args : ,ts] ...)) : ,rt ,body)
-     (when (> (length args) 6)
-       (error 'type-check-def "#arguments exceeds 6" args))
      (when (< (set-count (apply set args)) (length args))
        (error 'type-check-def "re-define arguments" args))
      (let ([env (foldr (lambda (arg t env) `((,arg . ,t) ,@env)) env args ts)])
-       (define-values (b _) (type-check-exp env body))
+       (define-values (b bt) (type-check-exp env body))
+       (unless (equal? bt rt)
+         (error 'type-check-def "expect return type" rt))
        `(define ,sig : ,rt ,b))]
     ))
 

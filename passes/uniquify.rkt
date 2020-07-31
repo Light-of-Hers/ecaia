@@ -1,6 +1,5 @@
 #lang racket
 
-(require "../utilities.rkt")
 (require "./utils.rkt")
 
 (provide uniquify)
@@ -22,6 +21,13 @@
             [new-x (gen-sym (symbol->string x))]
             [new-b (uniquify-exp (cons `(,x . ,new-x) alist) body)])
        `(let ([,new-x ,new-e]) ,new-b))]
+    [`(lambda: ([,as : ,ts] ...) : ,rt ,body)
+     (define new-args (for/list ([a as]) (gen-sym (symbol->string a))))
+     (define new-alist (for/fold ([alist alist]) ([o as] [n new-args])
+                         (cons `(,o . ,n) alist)))
+     (define new-body (uniquify-exp new-alist body))
+     `(lambda: ,(for/list ([a new-args] [t ts]) `[,a : ,t])
+        : ,rt ,new-body)]
     [`(,op ,es ...)
      `(,(if (builtin-op? op) op (recur op)) ,@(map recur es))]
     [else e]

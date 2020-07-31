@@ -13,7 +13,9 @@
 (require "./passes/print-x86.rkt")
 (require "./passes/expose-allocation.rkt")
 (require "./passes/reveal-functions.rkt")
-(require "./utilities.rkt")
+(require "./passes/limit-functions.rkt")
+(require "./passes/convert-to-closures.rkt")
+(require (only-in "./passes/utils.rkt" strip-has-type))
 
 
 (define (apply-passes prog . passes)
@@ -39,17 +41,22 @@
                     (define (fib [n : Integer])
                       : Integer
                       (fib-iter n 0 1))
-                    (vector-ref (map-vec2 (if (< (read) 0) sub1 add1) (vector 0 (fib (read)))) 1)
+                    (define (sum10 [a1 : Integer] [a2 : Integer] [a3 : Integer] [a4 : Integer] [a5 : Integer]
+                                   [a6 : Integer] [a7 : Integer] [a8 : Integer] [a9 : Integer] [a10 : Integer])
+                      : Integer
+                      (+ a1 (+ a2 (+ a3 (+ a4 (+ a5 (+ a6 (+ a7 (+ a8 (+ a9 a10))))))))))
+                    (vector-ref (map-vec2 (if (< (read) 0) sub1 add1) (vector 1 (fib (read)))) 1)
                     )
                    ))
 
 ;; (pretty-print (remove-complex (shrink prog)))
 (define out (apply-passes (list-ref examples 0)
                           type-check
-                          expose-allocation
                           uniquify
                           shrink
                           reveal-functions
+                          limit-functions
+                          expose-allocation
                           remove-complex
                           explicate-control
                           select-instructions

@@ -1,7 +1,6 @@
 #lang racket
 
 (require "utils.rkt")
-(require "../utilities.rkt")
 
 (provide patch-instructions)
 
@@ -12,11 +11,13 @@
 
 (define (pi-inst inst)
   (match inst
-    [`(,opt ,(? deref? a) ,(? deref? b))
-     `((movq ,a (reg rax)) (,opt (reg rax) ,b))]
+    [`(movq ,a ,b) #:when (equal? a b) '()]
     [`(,(? indirect-call? call) ,(? deref? f))
      `((movq ,f (reg rax)) (,call (reg rax)))]
-    [`(movq ,a ,b) #:when (equal? a b) '()]
+    [`(leaq ,a ,(? deref? b))
+     `((leaq ,a (reg rax)) (movq (reg rax) ,b))]
+    [`(,opt ,(? deref? a) ,(? deref? b))
+     `((movq ,a (reg rax)) (,opt (reg rax) ,b))]    
     [else `(,inst)]))
 
 (define (pi-def def)

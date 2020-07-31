@@ -1,7 +1,6 @@
 #lang racket
 
 (require "./utils.rkt")
-(require "../utilities.rkt")
 (require graph)
 
 (provide allocate-registers)
