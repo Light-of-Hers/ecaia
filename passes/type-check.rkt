@@ -13,7 +13,9 @@
 (define (type-check-exp env e)
   (define recur ((curry type-check-exp) env))    
   (match e
+    ;; already tagged
     [`(has-type ,_ ,t) (values e t)]
+    ;; atom value
     [(? fixnum?) (tce e `Integer)]
     [(? boolean?) (tce e `Boolean)]
     [(? symbol?) (tce e (dict-ref env e))]
@@ -22,21 +24,26 @@
     [`(allocate ,_ ,t) (tce e t)]
     [`(global-value ,_) (tce e `Integer)]
     [`(collect ,_) (tce e `Void)]
+    [`(fun-ref ,f) (tce e (dict-ref env f))]
+    ;; let-binding
     [`(let ([,x ,e]) ,body)
      (define-values (e^ t) (recur e))
      (when (and (eq? x '_) (not (equal? t `Void)))
        (error 'type-check-exp "must bind a void to _" e))
      (define-values (b^ t-b) (type-check-exp (if (eq? x '_) env `((,x . ,t) ,@env)) body))
      (tce `(let ([,x ,e^]) ,b^) t-b)]
+    ;; conditional
     [`(if ,cnd ,thn ,els)
      (define-values (cn ct) (recur cnd))
      (define-values (th tt) (recur thn))
      (define-values (el et) (recur els))
      (unless (equal? ct `Boolean)
        (error `type-check-exp "condition must be a boolean, not ~a" ct))
-     (unless (equal? tt et)
-       (error `type-check-exp "two branches must have same type ~a : ~a" tt et))
+     ;; (unless (equal? tt et)
+     ;;   (pretty-print e)
+     ;;   (error `type-check-exp "two branches must have same type ~a : ~a" tt et))
      (tce `(if ,cn ,th, el) tt)]
+    ;; vector operation
     [`(vector ,es ...)
      (define-values (e* t*) (for/lists (_e* _t*) ([e es]) (recur e)))
      (let ([t `(Vector ,@t*)])
@@ -57,6 +64,7 @@
      (match t
        [`(Vector ,ts ...)
         (unless (and (exact-nonnegative-integer? i) (< i (length ts)))
+          (pretty-print `(,e^ ,i ,e1^))
           (error `type-check-exp "invalid index ~a" i))
         (let ([t (list-ref ts i)])
           (unless (equal? t t1)
@@ -64,16 +72,27 @@
           (tce `(vector-set! ,e^ ,i ,e1^) `Void))]
        [else (error `type-check-exp "expected a vector in vector-set!, not ~a" t)]
        )]
+    ;; lambda abstraction
     [`(lambda: ,(app pbind sig `([,xs : ,ts] ...)) : ,rt ,body)
      (when (< (set-count (apply set xs)) (length xs))
        (error 'type-check-exp "re-define arguments" xs))
-     (define ext-env (for/fold ([env env])
+     (define new-env (for/fold ([env env])
                                ([x xs] [t ts])
                        (cons `(,x . ,t) env)))
-     (define-values (b bt) (type-check-exp ext-env body))
+     (define-values (b bt) (type-check-exp new-env body))
      (unless (equal? bt rt)
        (error 'type-check-exp "expect return type" rt))
      (tce `(lambda: ,sig : ,rt ,b) `(,@ts -> ,rt))]
+    ;; application
+    [`(call ,f ,es ...)
+     (define-values (f^ ft) (recur f))
+     (define-values (e* t*) (for/lists (_0 _1) ([e es]) (recur e)))
+     (match ft
+       [`(,ts ... -> ,rt)
+        (unless (equal? ts t*)
+          (error 'type-check-exp "fuck your grandmother" t*))
+        (tce `(call ,f^ ,@e*) rt)]
+       )]
     [`(,op ,es ...)
      (define-values (op^ arity) (cond
                                   [(and (eq? op '-) (= (length es) 1)) (values op `((Integer) Integer))]
@@ -90,6 +109,7 @@
          (error `type-check-exp "fuck your mother" t*))
        (tce `(,op^ ,@e*) ret-type))
      (apply check arity)]
+    [else (error 'type-check-exp "oh mother fucker" e)]
     ))
 
 (define (type-tag e)
@@ -104,7 +124,7 @@
                 (error 'collect-def-types "re-define" f))
               (when (builtin-op? f)
                 (error 'collect-def-types "overwirte builtin-op" f))
-              `((,f . (,@ts -> ,rt)) ,@env)]
+              (cons `(,f . (,@ts -> ,rt)) env)]
              ))
          '() defs))
 

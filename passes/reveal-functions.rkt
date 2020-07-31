@@ -11,6 +11,8 @@
     [(? symbol?) (if (set-member? f-names e) `(fun-ref ,e) e)]
     [(? simple?) e]
     [`(let ([,x ,e]) ,body) `(let ([,x ,(recur e)]) ,(recur body))]
+    [`(lambda: ,sig : ,rt ,body)
+     `(lambda: ,sig : ,rt ,(recur body))]
     [`(,op ,es ...) #:when (builtin-op? op) `(,op ,@(map recur es))]
     [`(,_ ,_ ...) `(call ,@(map recur e))]
     [else e]

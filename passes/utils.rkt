@@ -6,7 +6,7 @@
          general-registers num-registers-for-alloc caller-save callee-save
 	 arg-registers rootstack-reg register->color color->register
          registers align byte-reg->full-reg
-         fun-call? indirect-call?)
+         fun-call? indirect-call? get-type)
 
 (define (arg? x)
   (match x
@@ -32,6 +32,11 @@
     [(? fixnum?) `(int ,x)]
     [(? boolean?) `(int ,(if x 1 0))]
     [`(global-value ,_) x]
+    ))
+
+(define (get-type e)
+  (match e
+    [`(has-type ,_ ,t) t]
     ))
 
 (define (pbind x) (values x x))
