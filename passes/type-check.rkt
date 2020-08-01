@@ -2,7 +2,7 @@
 
 (require "utils.rkt")
 
-(provide type-check type-tag)
+(provide type-check)
 
 (define arity-table (make-hash))
 (for ([op '(+ -)]) (hash-set! arity-table op `((Integer Integer) Integer)))
@@ -39,9 +39,9 @@
      (define-values (el et) (recur els))
      (unless (equal? ct `Boolean)
        (error `type-check-exp "condition must be a boolean, not ~a" ct))
-     ;; (unless (equal? tt et)
-     ;;   (pretty-print e)
-     ;;   (error `type-check-exp "two branches must have same type ~a : ~a" tt et))
+     (unless (equal? tt et)
+       (pretty-print e)
+       (error `type-check-exp "two branches must have same type ~a : ~a" tt et))
      (tce `(if ,cn ,th, el) tt)]
     ;; vector operation
     [`(vector ,es ...)
@@ -111,10 +111,6 @@
      (apply check arity)]
     [else (error 'type-check-exp "oh mother fucker" e)]
     ))
-
-(define (type-tag e)
-  (define-values (e^ _) (type-check-exp '() e))
-  e^)
 
 (define (collect-def-types defs)
   (foldr (lambda (def env)

@@ -1,7 +1,7 @@
 #lang racket
 
 (require "./utils.rkt")
-(require "./type-check.rkt")
+(require "./type-tag.rkt")
 
 (provide convert-to-closures)
 

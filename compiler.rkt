@@ -32,7 +32,9 @@
                       (+ x 1))
                     (let ([diff (read)]) (vector-ref (map-vec2 (if (< (read) 0)
                                                                    (lambda: ([x : Integer]) : Integer (- x diff))
-                                                                   add1) (vector 1 (read))) 1))
+                                                                   add1)
+                                                               (vector 1 (read)))
+                                                     1))
                     )
                    ))
 
